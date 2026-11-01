@@ -24,6 +24,8 @@ return Application::configure(basePath: dirname(__DIR__))
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
 
+        // An answer to the user, not a failure: keep it out of the error log.
+        $exceptions->dontReport(TimerException::class);
         $exceptions->render(fn (TimerException $e, Request $request) => $request->expectsJson()
             ? response()->json(['message' => $e->getMessage()], 409)
             : back()->withErrors(['timer' => $e->getMessage()]));
