@@ -58,7 +58,7 @@ function addEmployee() {
         <button type="submit" class="btn btn-ghost" :disabled="form.processing">Добавить</button>
     </form>
 
-    <ul v-if="employees.length" class="mt-8 divide-y hairline border-y">
+    <ul v-if="employees.length" class="mt-8 divide-y divide-hairline hairline border-y">
         <EmployeeRow
             v-for="employee in employees"
             :key="employee.id"

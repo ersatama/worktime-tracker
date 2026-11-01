@@ -34,7 +34,7 @@ function stopTimer() {
 </script>
 
 <template>
-    <li class="grid gap-3 py-4 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] sm:items-center sm:gap-6">
+    <li class="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-3 py-4 sm:grid-cols-[minmax(0,1fr)_6.5rem_minmax(0,1.6fr)] sm:items-center">
         <div class="min-w-0">
             <div class="flex items-center gap-2">
                 <span
@@ -44,12 +44,15 @@ function stopTimer() {
                 />
                 <span class="truncate font-medium">{{ employee.name }}</span>
             </div>
-            <div class="mt-0.5 truncate pl-3.5 text-sm muted">
-                {{ employee.position || 'Без должности' }} · сегодня {{ formatDuration(today) }}
-            </div>
+            <div class="mt-0.5 truncate pl-3.5 text-sm muted">{{ employee.position || 'Без должности' }}</div>
         </div>
 
-        <div class="min-w-0">
+        <div class="text-right sm:text-left">
+            <div class="text-sm tabular-nums">{{ formatDuration(today) }}</div>
+            <div class="text-xs muted">сегодня</div>
+        </div>
+
+        <div class="col-span-2 min-w-0 sm:col-span-1">
             <div v-if="running" class="flex items-center gap-3">
                 <div class="min-w-0 flex-1">
                     <div class="truncate text-sm">{{ running.description }}</div>

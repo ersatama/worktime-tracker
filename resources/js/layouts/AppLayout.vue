@@ -29,8 +29,8 @@ const url = computed(() => page.url);
 
 <template>
     <div class="mx-auto flex min-h-dvh max-w-4xl flex-col px-4 sm:px-6">
-        <header class="flex h-16 items-center gap-6 border-b hairline">
-            <Link href="/" class="flex items-center gap-2 text-sm font-semibold tracking-tight">
+        <header class="flex h-16 items-center gap-3 border-b hairline sm:gap-6">
+            <Link href="/" class="flex items-center gap-2 text-sm font-semibold tracking-tight whitespace-nowrap">
                 <span class="size-2 rounded-full bg-zinc-900 dark:bg-zinc-100" />
                 Учёт времени
             </Link>

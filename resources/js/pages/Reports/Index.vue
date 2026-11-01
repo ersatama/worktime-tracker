@@ -118,7 +118,7 @@ const period = computed(() => {
             <p class="text-sm muted">Итого <span class="ml-1 text-2xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{{ formatDuration(grandTotal) }}</span></p>
         </div>
 
-        <ul v-if="totals.length" class="mt-4 divide-y hairline border-y">
+        <ul v-if="totals.length" class="mt-4 divide-y divide-hairline hairline border-y">
             <li v-for="row in totals" :key="row.employee.id" class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 py-3 sm:grid-cols-[minmax(0,14rem)_1fr_auto]">
                 <div class="min-w-0">
                     <div class="truncate text-sm font-medium">{{ row.employee.name }}</div>
@@ -146,7 +146,7 @@ const period = computed(() => {
                         <th class="py-2 text-right font-normal">Длительность</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y hairline">
+                <tbody class="divide-y divide-hairline hairline">
                     <tr v-for="entry in entries" :key="entry.id">
                         <td class="py-2.5 pr-4 whitespace-nowrap">{{ entry.employee_name }}</td>
                         <td class="max-w-64 truncate py-2.5 pr-4" :title="entry.description">{{ entry.description }}</td>
