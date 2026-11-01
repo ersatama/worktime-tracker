@@ -11,7 +11,7 @@
 Нужен только Docker с Compose v2.
 
 ```bash
-git clone <repo-url> worktime-tracker && cd worktime-tracker
+git clone https://github.com/ersatama/worktime-tracker.git && cd worktime-tracker
 docker compose up -d --build
 ```
 
