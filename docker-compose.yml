@@ -1,0 +1,109 @@
+name: worktime
+
+x-app-env: &app-env
+  APP_NAME: Учёт времени
+  APP_ENV: production
+  APP_DEBUG: ${APP_DEBUG:-false}
+  APP_KEY: ${APP_KEY:-}
+  APP_URL: http://localhost:${APP_PORT:-8080}
+  APP_LOCALE: ru
+  APP_FAKER_LOCALE: ru_RU
+  LOG_CHANNEL: stderr
+  DB_CONNECTION: mysql
+  DB_HOST: mysql
+  DB_PORT: 3306
+  DB_DATABASE: worktime
+  DB_USERNAME: worktime
+  DB_PASSWORD: ${DB_PASSWORD:-worktime}
+  REDIS_CLIENT: phpredis
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  CACHE_STORE: redis
+  SESSION_DRIVER: redis
+  QUEUE_CONNECTION: redis
+  INERTIA_SSR_ENABLED: "false"
+
+services:
+  app:
+    build:
+      context: .
+      target: app
+    environment: *app-env
+    volumes:
+      - storage:/var/www/html/storage
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      target: web
+    ports:
+      - "${APP_PORT:-8080}:80"
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: worktime
+      MYSQL_USER: worktime
+      MYSQL_PASSWORD: ${DB_PASSWORD:-worktime}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+    volumes:
+      - mysql:/var/lib/mysql
+      - ./docker/mysql:/docker-entrypoint-initdb.d:ro
+    ports:
+      # For a local DB client / `php artisan serve` outside Docker.
+      - "127.0.0.1:${FORWARD_DB_PORT:-33060}:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis:/data
+    ports:
+      - "127.0.0.1:${FORWARD_REDIS_PORT:-63790}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  # docker compose --profile test run --rm tests
+  tests:
+    profiles: [test]
+    build:
+      context: .
+      target: tests
+    environment:
+      <<: *app-env
+      APP_ENV: testing
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      DB_DATABASE: worktime_test
+      # The timer lock runs on the real Redis; sessions stay in memory.
+      REDIS_CACHE_DB: "15"
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  mysql:
+  redis:
+  storage:
