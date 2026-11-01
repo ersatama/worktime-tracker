@@ -1,58 +1,166 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Учёт рабочего времени
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Небольшое веб-приложение для учёта рабочего времени сотрудников: добавить сотрудника, запустить и остановить таймер с описанием задачи, посмотреть записи и общее время каждого сотрудника за выбранный период. Данные хранятся в MySQL и переживают перезапуск. Все данные вымышленные.
 
-## About Laravel
+**Стек:** Laravel 13 (PHP 8.4) · MySQL 8.4 · Redis 7 · Vue 3 + Inertia.js 3 · Tailwind CSS 4 · Docker Compose (php-fpm + nginx).
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Интерфейс минималистичный, со светлой и тёмной темой: по умолчанию берётся системная, переключатель справа в шапке запоминает выбор.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Быстрый старт (Docker)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+Нужен только Docker с Compose v2.
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+git clone <repo-url> worktime-tracker && cd worktime-tracker
+docker compose up -d --build
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Откройте http://localhost:8080. При старте контейнер `app` сам применяет миграции. Ключ приложения создаётся один раз и хранится в томе `storage`, поэтому `.env` не нужен.
 
-## Contributing
+Демо-данные: 5 вымышленных сотрудников, две недели записей, у одного сотрудника идёт таймер. Если сотрудники уже есть, сидер ничего не добавляет.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+docker compose exec app php artisan db:seed --force
+```
 
-## Code of Conduct
+| Действие | Команда |
+|---|---|
+| Остановить (данные остаются в томах `mysql`, `redis`, `storage`) | `docker compose down` |
+| Запустить снова | `docker compose up -d` |
+| Удалить вместе с данными | `docker compose down -v` |
+| Логи приложения | `docker compose logs -f app` |
+| Другой порт | `APP_PORT=8081 docker compose up -d` |
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### Тесты
 
-## Security Vulnerabilities
+На тех же MySQL и Redis, что и приложение (отдельная база `worktime_test`):
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+docker compose --profile test run --rm --build tests
+```
 
-## License
+Локально, без Docker (SQLite в памяти):
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+composer install && php artisan test
+```
+
+### Запуск без Docker (для разработки)
+
+Нужны PHP 8.3+ с `pdo_mysql` и `redis` и Node 20+. MySQL и Redis можно взять из compose: они проброшены на `127.0.0.1:33060` и `127.0.0.1:63790`.
+
+```bash
+docker compose up -d mysql redis
+cp .env.example .env
+composer install && php artisan key:generate && php artisan migrate --seed
+npm install
+composer run dev          # веб-сервер и Vite одной командой
+```
+
+Если расширения `redis` нет, поставьте в `.env` `CACHE_STORE=database` и `SESSION_DRIVER=database`.
+
+## Что умеет
+
+- **Сотрудники** (`/`): добавление (имя, должность). У каждого сотрудника видно время за сегодня и поле «Над чем работаете?» с кнопкой «Старт». Запущенный таймер тикает каждую секунду, рядом кнопка «Стоп».
+- **Отчёт** (`/reports`): период «с — по» (по умолчанию текущая неделя), быстрые кнопки «Сегодня / Неделя / Месяц / Прошлый месяц», фильтр по сотруднику. Показывает итог, время каждого сотрудника (с нулём, если он не работал) и список записей.
+
+### Правила, которые стоит знать
+
+- **Один таймер на сотрудника.** Повторный «Старт» при запущенном таймере отклоняется с понятным сообщением. Это гарантирует уникальный индекс в базе, а не только проверка в коде (подробнее ниже). Таймеры разных сотрудников независимы.
+- **Записи на границе периода** учитываются только той частью, что попала внутрь. Например, работа с 22:00 до 02:00 даст 2 часа в один день и 2 часа в другой.
+- **Идущий таймер** считается до текущего момента. В будущих периодах он не появляется.
+- **Часовой пояс зрителя.** Страница кладёт пояс браузера в cookie `tz`, и «сегодня» и границы периода считаются по нему. В базе всё хранится в UTC.
+- **Часы сервера.** Таймеры тикают от времени сервера (`serverNow` в каждом ответе), поэтому неверные часы на компьютере не дают «прыгающих» значений.
+
+## Устройство
+
+```
+app/
+  Models/Employee.php, TimeEntry.php    модели; TimeEntry::overlapping() и secondsWithin() — пересечение с периодом
+  Services/TimerService.php             старт/стоп: Redis-лок на сотрудника + уникальный индекс как последняя защита
+  Services/WorkTimeReport.php           итоги и записи за период
+  Http/Controllers/                     Employee, Timer, Report — тонкие, вся логика в сервисах
+  Http/Requests/                        валидация (ReportRequest знает период по умолчанию и лимит 366 дней)
+  Exceptions/TimerException.php         «уже запущен» / «не запущен» → ошибка формы (или 409 для JSON)
+  Support/ClientTimezone.php            часовой пояс из cookie
+resources/js/
+  pages/Employees/Index.vue, pages/Reports/Index.vue
+  components/EmployeeRow.vue, ThemeToggle.vue
+  layouts/AppLayout.vue
+  lib/useNow.js (тикающее «сейчас» по часам сервера), lib/format.js
+docker/                                 nginx, php.ini, entrypoint, init-скрипт MySQL
+tests/Feature/                          EmployeeTest, TimerTest, ReportTest
+```
+
+### Схема и индексы
+
+`employees`: `id`, `name`, `position`, timestamps
+`time_entries`: `id`, `employee_id`, `description`, `started_at`, `ended_at` (NULL, пока таймер идёт), timestamps, `running_employee_id` (generated)
+
+| Индекс | Зачем |
+|---|---|
+| `employees(name)` | списки сотрудников отсортированы по имени |
+| `time_entries(employee_id, started_at)` | отчёт по сотруднику за период; также индекс для внешнего ключа |
+| `time_entries(started_at)` | отчёт по всем сотрудникам за период |
+| `UNIQUE time_entries(running_employee_id)` | не больше одного запущенного таймера на сотрудника |
+
+`running_employee_id` — сохраняемая вычисляемая колонка `CASE WHEN ended_at IS NULL THEN employee_id END`. Пока таймер идёт, в ней id сотрудника, после остановки — NULL. Несколько NULL уникальному индексу не мешают, а вот второй запущенный таймер того же сотрудника база не пропустит, даже если два запроса придут одновременно. В MySQL нет частичных индексов (`WHERE ended_at IS NULL`), это их замена.
+
+Проверено `EXPLAIN` на MySQL: запрос отчёта по сотруднику за день идёт через `range` по `(employee_id, started_at)` с обратным проходом индекса для `ORDER BY started_at DESC`.
+
+### Redis
+
+Кэш, сессии и очередь работают через Redis, а старт/стоп таймера выполняется под Redis-локом `timer:employee:{id}`. Двойной клик или две открытые вкладки получают понятный ответ вместо гонки.
+
+## Проверки (27 тестов)
+
+| Сценарий | Тест |
+|---|---|
+| Добавление сотрудника, пустое/длинное имя | `EmployeeTest` |
+| Время за сегодня и идущий таймер в списке; пустой список | `EmployeeTest` |
+| Старт с описанием; пустое описание (сообщение на русском) | `TimerTest` |
+| **Повторный запуск идущего таймера** отклоняется, первая запись не тронута; для JSON 409 | `TimerTest` |
+| Стоп → снова старт; стоп без запущенного таймера | `TimerTest` |
+| Таймеры разных сотрудников независимы | `TimerTest` |
+| База отвергает второй идущий таймер в обход кода | `TimerTest` |
+| Лок занят → понятный ответ «повторите» | `TimerTest` |
+| **Пустой отчёт**: все сотрудники с нулём, записей нет; отчёт без сотрудников | `ReportTest` |
+| Итоги и записи за период, фильтр по сотруднику | `ReportTest` |
+| Записи на границе периода, идущий таймер, будущий период | `ReportTest` |
+| Часовой пояс зрителя и запасной UTC; неверный пояс | `ReportTest` |
+| Период «по» раньше «с», неверная дата, чужой сотрудник, период > 366 дней | `ReportTest` |
+
+Сохранность данных после перезапуска проверена вручную: `docker compose down && docker compose up -d`, после чего сотрудники, записи и идущий таймер на месте.
+
+## Как использовался ИИ
+
+**Инструмент:** Claude Code (агент в терминале / desktop) на модели **Claude Opus 5.5** (Anthropic). Агент писал код, запускал тесты локально и в Docker, смотрел `EXPLAIN` в MySQL и проверял интерфейс во встроенном браузере (клики, обе темы, ширина телефона). Я ставил задачу, принимал решения и проверял результат.
+
+**Примеры запросов:**
+
+> Создай с нуля веб-приложение для учёта рабочего времени: добавление сотрудников, запуск и остановка таймера с описанием задачи, просмотр записей и общего времени каждого сотрудника за период, сохранение данных после перезапуска.
+
+> Бэкенд на Laravel + MySQL + Redis + Docker. Фронт на Vue, можно на том же бэке через Inertia.
+
+> Дизайн в стиле минимализма с переключением светлого и тёмного режима.
+
+> Делай коммит на каждом этапе, начиная с feat: / fix: / chore: / refactor: / docs:. Не забудь индексы и README с инструкцией по запуску.
+
+### Найденные и исправленные ошибки
+
+Ниже реальные ошибки из процесса разработки и то, как каждая была найдена.
+
+1. **Внешний ключ с `ON DELETE CASCADE` несовместим с generated-колонкой в MySQL.** `running_employee_id` вычисляется из `employee_id`, а MySQL запрещает каскадные действия у внешнего ключа на базовой колонке сохраняемой generated-колонки (`ERROR 1215 Cannot add foreign key constraint`; воспроизведено на MySQL 8.4). SQLite, на котором идут локальные тесты, такую схему принимает молча. *Исправление:* `restrictOnDelete()` (сотрудники не удаляются, история защищена) и отдельный профиль `tests`, где весь набор тестов идёт на настоящем MySQL.
+2. **Таймеры показали бы `NaN`.** В первой версии `useNow.js` смещение часов считалось от несуществующего свойства страницы `__receivedAt`. *Найдено* при ревью сгенерированного кода. *Исправление:* смещение пересчитывается через `watch` на `serverNow` при каждом ответе.
+3. **Сообщения валидации на английском:** «The описание задачи field is required.» *Найдено* в браузере. *Исправление:* `lang/ru/validation.php` для используемых правил. Локаль в `phpunit.xml` теперь закреплена, потому что локальный `.env` с `APP_LOCALE=en` маскировал проблему в тестах. Тест проверяет точный русский текст.
+4. **Шрифт без кириллицы.** Inter подключался только с латинским subset, и русский текст рендерился системным шрифтом. *Найдено* по `unicode-range` в собранном CSS. *Исправление:* `subsets: ['latin', 'cyrillic']`.
+5. **Ожидаемые отказы таймера писались в лог как ERROR.** *Найдено* в выводе тестов в Docker (лог в stderr). *Исправление:* `dontReport(TimerException::class)`.
+6. **Яркие разделители строк в тёмной теме.** В Tailwind 4 `divide-y` красит границы детей в `currentColor`, а класс цвета стоял на родителе. *Найдено* на скриншоте. *Исправление:* `divide-zinc-100 dark:divide-zinc-900`.
+7. **Время «сегодня» обрезалось многоточием** вместе с длинной должностью. *Найдено* на скриншоте. *Исправление:* отдельная колонка с цифрой.
+8. **Сидер упал бы на `NOT NULL`.** Первая версия создавала запись через `TimeEntry::create([... ] + ['employee_id' => …])`, но `employee_id` не входит в `$fillable` и молча отбрасывается. *Найдено* при ревью. *Исправление:* `$employee->timeEntries()->create(...)`.
+9. **Тест часового пояса проверял не то.** Cookie, заданный в тесте через `withUnencryptedCookie`, сохраняется и для следующего запроса в том же тесте, поэтому проверка «без cookie — UTC» на самом деле шла с cookie. *Найдено* по падению теста. *Исправление:* два отдельных теста.
+10. **`php artisan test` в контейнере сыпал предупреждениями** `file_get_contents(.env)`: Collision ищет `.env`, а образ его сознательно не содержит. *Исправление:* раннер тестов в образе — `vendor/bin/phpunit`.
+
+## Что можно доделать
+
+Редактирование и удаление записей, архив сотрудников, постраничный вывод записей и агрегация итогов в SQL для больших объёмов, экспорт отчёта в CSV, CI (GitHub Actions с тем же профилем `tests`).
