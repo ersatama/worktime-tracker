@@ -35,7 +35,7 @@ class TimerTest extends TestCase
         $employee = Employee::factory()->create();
 
         $this->post("/employees/{$employee->id}/timer/start", ['description' => ''])
-            ->assertSessionHasErrors('description');
+            ->assertSessionHasErrors(['description' => 'Заполните поле «описание задачи».']);
 
         $this->assertDatabaseCount('time_entries', 0);
     }
